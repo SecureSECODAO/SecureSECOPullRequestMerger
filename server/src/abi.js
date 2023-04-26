@@ -47,21 +47,21 @@ module.exports = {
       inputs: [
         {
           internalType: "string",
-          name: "_owner",
+          name: "owner",
           type: "string",
         },
         {
           internalType: "string",
-          name: "_rep",
+          name: "rep",
           type: "string",
         },
         {
           internalType: "string",
-          name: "_pull_number",
+          name: "pull_number",
           type: "string",
         },
       ],
-      name: "mergePullRequest",
+      name: "merge",
       outputs: [],
       stateMutability: "nonpayable",
       type: "function",
