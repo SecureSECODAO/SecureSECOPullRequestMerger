@@ -4,7 +4,7 @@
  */
 
 import { createPublicClient, http } from "viem";
-import { mainnet, polygonMumbai } from "viem/chains";
+import { mainnet, polygonMumbai, hardhat } from "viem/chains";
 import { Octokit } from "@octokit/rest";
 import { abi } from "./abi.js";
 import * as dotenv from "dotenv";
@@ -22,7 +22,8 @@ const client = createPublicClient({
   transport: http(),
 });
 
-console.log(`Contract address: ${process.env.CONTRACT_ADDRESS}`);
+// Keeps track of what pr's have been merged
+export const mergedPullRequests = new Map();
 
 // Detect the MergePullRequest event. This is emitted when a pull request needs to be merged,
 //  as a result of the execution of the mergePullRequest function. That function is called
@@ -34,10 +35,12 @@ client.watchContractEvent({
   onLogs: async (logs) => {
     console.log(logs);
     for (let log of logs) {
-      try {
-        // Extract the owner, repo and pull_number from the event
-        const { owner, repo, pull_number } = (log as any).args;
+      // Extract the owner, repo and pull_number from the event
+      const { owner, repo, pull_number } = (log as any).args;
 
+      console.log(`Merging pull request: (${owner}/${repo}#${pull_number})`);
+
+      try {
         // Merge the pull request
         const res = await octokit.pulls.merge({
           owner,
@@ -49,12 +52,23 @@ client.watchContractEvent({
           console.log(
             `Pull request merged successfully: (${owner}/${repo}#${pull_number})`
           );
+
+          // Add the pull request to the merged pull requests map
+          mergedPullRequests.set(`${owner}/${repo}#${pull_number}`, true);
         } else {
           console.log("Pull request not merged: \n", res);
+
+          // Add the pull request to the merged pull requests map
+          mergedPullRequests.set(`${owner}/${repo}#${pull_number}`, false);
         }
       } catch (error) {
         console.log("Could not merge pull request: \n", error);
+
+        // Add the pull request to the merged pull requests map
+        mergedPullRequests.set(`${owner}/${repo}#${pull_number}`, false);
       }
     }
   },
 });
+
+console.log(`Contract address: ${process.env.CONTRACT_ADDRESS}`);
