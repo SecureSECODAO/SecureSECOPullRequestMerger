@@ -21,14 +21,14 @@ contract GithubPullRequestFacetMock {
         keccak256("MERGE_PR_PERMISSION");
 
     /// Function that emits an event to merge a pull request
-    /// @param owner Owner of the repository
-    /// @param rep Name of the repository
-    /// @param pull_number Number of the pull request
+    /// @param _owner Owner of the repository
+    /// @param _rep Name of the repository
+    /// @param _pull_number Number of the pull request
     function merge(
-        string memory owner,
-        string memory rep,
-        string memory pull_number
+        string memory _owner,
+        string memory _rep,
+        string memory _pull_number
     ) external /*auth(MERGE_PR_PERMISSION_ID)*/ {
-        emit MergePullRequest(owner, rep, pull_number);
+        emit MergePullRequest(_owner, _rep, _pull_number);
     }
 }
