@@ -7,8 +7,12 @@ import { createPublicClient, http } from "viem";
 import { mainnet, polygonMumbai, hardhat } from "viem/chains";
 import { Octokit } from "@octokit/rest";
 import { abi } from "./abi.js";
+import express from "express";
 import * as dotenv from "dotenv";
 dotenv.config();
+
+const app = express();
+app.listen(process.env.PORT || 3000);
 
 // Create a GitHub client so we can merge the pull request
 const octokit = new Octokit({
