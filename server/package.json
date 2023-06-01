@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start:dev": "npx nodemon",
-    "build": "rimraf ./build && tsc && cp .env ./build/.env",
+    "build": "rimraf ./build && tsc && cp .env ./build/.env | true",
     "start": "npm run build && node build/index.js"
   },
   "keywords": [],
