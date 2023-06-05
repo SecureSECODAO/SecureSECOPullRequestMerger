@@ -4,6 +4,10 @@ Listens to DAO Smart Contract and merges PRs for SecureSECO repositories when ne
 
 ## Setup
 
+Go to server directory
+
+    cd server
+
 Install packages
 
     npm install
