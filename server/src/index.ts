@@ -82,7 +82,7 @@ client.watchContractEvent({
             owner,
             repo,
             issue_number: pull_number,
-            body: `This pull request has been merged by the SecureSECO DAO.\n\nExecuted by: \`${log.address}\`\nTransaction hash: \`${log.transactionHash}\``,
+            body: `This pull request has been merged by the [SecureSECO DAO](https://dao.secureseco.org/).\n\nExecuted by: \`${log.address}\`\nTransaction hash: \`${log.transactionHash}\``,
           })
           .catch((error) => {
             console.log("Could not comment on pull request: \n", error);
