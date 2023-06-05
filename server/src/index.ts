@@ -44,6 +44,7 @@ client.watchContractEvent({
 
       console.log(`Merging pull request: (${owner}/${repo}#${pull_number})`);
 
+      let success = false;
       try {
         // Merge the pull request
         const res = await octokit.pulls.merge({
@@ -65,11 +66,27 @@ client.watchContractEvent({
           // Add the pull request to the merged pull requests map
           mergedPullRequests.set(`${owner}/${repo}#${pull_number}`, false);
         }
+
+        success = true;
       } catch (error) {
         console.log("Could not merge pull request: \n", error);
 
         // Add the pull request to the merged pull requests map
         mergedPullRequests.set(`${owner}/${repo}#${pull_number}`, false);
+      }
+
+      if (success) {
+        // Comment on the pull request
+        octokit.issues
+          .createComment({
+            owner,
+            repo,
+            issue_number: pull_number,
+            body: `This pull request has been merged by the SecureSECO DAO.\n\nExecuted by: \`${log.address}\`\nTransaction hash: \`${log.transactionHash}\``,
+          })
+          .catch((error) => {
+            console.log("Could not comment on pull request: \n", error);
+          });
       }
     }
   },
