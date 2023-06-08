@@ -47,8 +47,27 @@ client.watchContractEvent({
       let success = false;
       let mergeError;
       try {
+        // Get the pull request
+        let res = await octokit.pulls.get({
+          owner,
+          repo,
+          pull_number,
+        });
+
+        let validValues = ["clean", "has_hooks", "unstable"];
+        if (
+          res.data &&
+          res.data.mergeable === true &&
+          !validValues.includes(res.data.mergeable_state)
+        ) {
+          throw new Error(
+            `Pull request is not mergeable: (${owner}/${repo}#${pull_number}). ` +
+              `Mergeable = ${res.data?.mergeable}, State = ${res.data?.mergeable_state}`
+          );
+        }
+
         // Merge the pull request
-        const res = await octokit.pulls.merge({
+        res = await octokit.pulls.merge({
           owner,
           repo,
           pull_number,
