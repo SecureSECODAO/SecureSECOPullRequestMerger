@@ -47,11 +47,11 @@ const handleEvent = async (
   let success = false;
   let mergeError;
   try {
-    // Get & validate the pull request
-    await validatePullRequest(owner, repo, pull_number);
-
     // Approve the pull request
     await approvePullRequest(owner, repo, pull_number);
+
+    // Get & validate the pull request
+    await validatePullRequest(owner, repo, pull_number);
 
     // Merge the pull request
     await mergePullRequest(owner, repo, pull_number);
@@ -97,14 +97,16 @@ const validatePullRequest = async (
 
   let validValues = ["clean", "has_hooks", "unstable"];
   if (
-    res.data &&
-    res.data.mergeable === true &&
+    res.data == null ||
+    res.data.mergeable == false ||
     !validValues.includes(res.data.mergeable_state)
   ) {
     throw new Error(
       `Pull request is not mergeable: (${owner}/${repo}#${pull_number}). ` +
         `Mergeable = ${res.data?.mergeable}, State = ${res.data?.mergeable_state}`
     );
+  } else {
+    console.log(`Pull request is mergeable: (${owner}/${repo}#${pull_number})`);
   }
 };
 
@@ -123,10 +125,14 @@ const approvePullRequest = async (
     event: "APPROVE",
   });
 
-  if (res.data && res.data.state !== "APPROVED") {
+  if (res.data == null || res.data?.state !== "APPROVED") {
     throw new Error(
       `Pull request could not be approved: (${owner}/${repo}#${pull_number}). ` +
         `State = ${res.data?.state}`
+    );
+  } else {
+    console.log(
+      `Pull request approved successfully: (${owner}/${repo}#${pull_number})`
     );
   }
 };
