@@ -7,18 +7,23 @@ import { Log, createPublicClient, http } from "viem";
 import { polygon, polygonMumbai } from "viem/chains";
 import { Octokit } from "@octokit/rest";
 import { abi } from "./abi";
-import express from "express";
 import * as dotenv from "dotenv";
 dotenv.config();
-
-const app = express();
-app.listen(process.env.PORT || 3000);
-
 // Create a GitHub client so we can merge the pull request
-const octokit = new Octokit({
+export const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
   userAgent: "SecureSECOPullRequestMerger",
 });
+
+if (process.env.ENCRYPTION_KEY == null) {
+  throw new Error("ENCRYPTION_KEY is not set");
+}
+
+// For encrypting the commit hash
+import Cryptr from "cryptr";
+export const cryptr = new Cryptr(process.env.ENCRYPTION_KEY);
+
+import "./server";
 
 // Create a client so we can read from the blockchain
 const client = createPublicClient({
@@ -34,12 +39,14 @@ export const mergedPullRequests = new Map();
  * @param owner Owner of the repository
  * @param repo Repository name
  * @param pull_number Pull request number
+ * @param sha Commit hash (encrypted)
  * @param log Log of the event
  */
 const handleEvent = async (
   owner: string,
   repo: string,
   pull_number: string,
+  sha: string,
   log: Log
 ) => {
   console.log(`Merging pull request: (${owner}/${repo}#${pull_number})`);
@@ -51,7 +58,10 @@ const handleEvent = async (
     await approvePullRequest(owner, repo, pull_number);
 
     // Get & validate the pull request
-    await validatePullRequest(owner, repo, pull_number);
+    const res = await validatePullRequest(owner, repo, pull_number);
+
+    // Check commit hash
+    await validateCommitHash(res, sha);
 
     // Merge the pull request
     await mergePullRequest(owner, repo, pull_number);
@@ -108,8 +118,29 @@ const validatePullRequest = async (
   } else {
     console.log(`Pull request is mergeable: (${owner}/${repo}#${pull_number})`);
   }
+
+  return res;
 };
 
+/**
+ * Makes sure that the given latest commit hash matches the one in the pull request.
+ */
+const validateCommitHash = async (
+  res: any, // previous response from validatePullRequest
+  encryptedSha: string
+) => {
+  const realSha = res.data.head.sha;
+  const decryptedSha = cryptr.decrypt(encryptedSha);
+
+  if (realSha !== decryptedSha) {
+    throw new Error(
+      `Pull request commit hash does not match: (${res.data.head.repo.full_name}#${res.data.number}). You should not push anything else after submitting the pull request along with the proposal. ` +
+        `Expected: ${realSha}, Actual: ${decryptedSha}`
+    );
+  } else {
+    console.log(`Pull request commit hash matches: ${realSha}`);
+  }
+};
 /**
  * Writes an approval on the pull request, so it can be merged.
  */
@@ -178,7 +209,7 @@ client.watchContractEvent({
     console.log(logs);
     for (let log of logs) {
       // Extract the owner, repo and pull_number from the event
-      const { owner, repo, pull_number } = log.args;
+      const { owner, repo, pull_number, sha } = log.args;
       try {
         const pr = mergedPullRequests.get(`${owner}/${repo}#${pull_number}`);
         if (pr === true) {
@@ -188,7 +219,7 @@ client.watchContractEvent({
           continue;
         }
 
-        await handleEvent(owner, repo, pull_number, log);
+        await handleEvent(owner, repo, pull_number, sha, log);
       } catch (error) {
         console.log("Could not handle event: \n", error);
       }

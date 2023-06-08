@@ -25,6 +25,12 @@ export const abi = [
         name: "pull_number",
         type: "string",
       },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "sha",
+        type: "string",
+      },
     ],
     name: "MergePullRequest",
     type: "event",
@@ -43,20 +49,52 @@ export const abi = [
     type: "function",
   },
   {
+    inputs: [],
+    name: "__GithubPullRequestFacet_init",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "deinit",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "bytes",
+        name: "",
+        type: "bytes",
+      },
+    ],
+    name: "init",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [
       {
         internalType: "string",
-        name: "owner",
+        name: "_owner",
         type: "string",
       },
       {
         internalType: "string",
-        name: "rep",
+        name: "_repo",
         type: "string",
       },
       {
         internalType: "string",
-        name: "pull_number",
+        name: "_pull_number",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "_sha",
         type: "string",
       },
     ],
