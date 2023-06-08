@@ -2,10 +2,19 @@ import express from "express";
 import { Octokit } from "@octokit/rest";
 import { celebrate, Joi, errors, Segments } from "celebrate";
 import { cryptr, octokit } from ".";
+import rateLimit from "express-rate-limit";
 
 const app = express();
 
 app.use(express.json());
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 15, // 15 requests per minute
+  message: "Too many requests from this IP, please try again later",
+});
+
+app.use(limiter);
 
 app.get("/", (req, res) => {
   res.json({
