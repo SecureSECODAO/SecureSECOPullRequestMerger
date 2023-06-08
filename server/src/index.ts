@@ -118,4 +118,3 @@ client.watchContractEvent({
 });
 
 console.log(`Contract address: ${process.env.CONTRACT_ADDRESS}`);
-WRAHHHHHHHHHH;
