@@ -45,6 +45,7 @@ client.watchContractEvent({
       console.log(`Merging pull request: (${owner}/${repo}#${pull_number})`);
 
       let success = false;
+      let mergeError;
       try {
         // Merge the pull request
         const res = await octokit.pulls.merge({
@@ -70,24 +71,29 @@ client.watchContractEvent({
         success = true;
       } catch (error) {
         console.log("Could not merge pull request: \n", error);
+        mergeError = error;
 
         // Add the pull request to the merged pull requests map
         mergedPullRequests.set(`${owner}/${repo}#${pull_number}`, false);
       }
 
+      let commentContent;
       if (success) {
-        // Comment on the pull request
-        octokit.issues
-          .createComment({
-            owner,
-            repo,
-            issue_number: pull_number,
-            body: `This pull request has been merged by the [SecureSECO DAO](https://dao.secureseco.org/).\n\nExecuted by: \`${log.address}\`\nTransaction hash: \`${log.transactionHash}\``,
-          })
-          .catch((error) => {
-            console.log("Could not comment on pull request: \n", error);
-          });
+        commentContent = `This pull request has been merged by the [SecureSECO DAO](https://dao.secureseco.org/).\n\nExecuted by: \`${log.address}\`\nTransaction hash: \`${log.transactionHash}\``;
+      } else {
+        commentContent = `This pull request could **not** be merged.\n\nExecuted by: \`${log.address}\`\nTransaction hash: \`${log.transactionHash}\`\n\nError: \`\`\`${mergeError}\`\`\``;
       }
+
+      octokit.issues
+        .createComment({
+          owner,
+          repo,
+          issue_number: pull_number,
+          body: commentContent,
+        })
+        .catch((error) => {
+          console.log("Could not comment on pull request: \n", error);
+        });
     }
   },
 });
