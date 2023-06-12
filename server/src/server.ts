@@ -3,8 +3,11 @@ import { Octokit } from "@octokit/rest";
 import { celebrate, Joi, errors, Segments } from "celebrate";
 import { cryptr, octokit } from ".";
 import rateLimit from "express-rate-limit";
+import cors from "cors";
 
 const app = express();
+
+app.use(cors());
 
 app.use(express.json());
 
