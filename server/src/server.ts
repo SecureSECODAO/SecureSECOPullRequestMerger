@@ -30,14 +30,25 @@ app.get(
   "/latestCommit",
   celebrate({
     [Segments.QUERY]: Joi.object().keys({
-      owner: Joi.string().required(),
-      repo: Joi.string().required(),
-      branch: Joi.string().required(),
+      url: Joi.string().uri().required(),
     }),
   }),
   async (req, res) => {
     try {
-      const { owner, repo, branch } = req.query;
+      const url = new URL(req.query.url as string);
+      const owner = url.pathname.split("/")[1];
+      const repo = url.pathname.split("/")[2];
+      const pullNumber = url.pathname.split("/")[4];
+
+      // Get pull request
+      const pullRequest = await octokit.pulls.get({
+        owner,
+        repo,
+        pull_number: pullNumber,
+      });
+
+      // Get the branch of the pull request
+      const branch = pullRequest.data.head.ref;
 
       const response = await octokit.repos.getBranch({
         owner,
