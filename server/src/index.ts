@@ -3,10 +3,8 @@
  * © Copyright Utrecht University (Department of Information and Computing Sciences)
  */
 
-import { Log, createPublicClient, http } from "viem";
-import { polygon, polygonMumbai } from "viem/chains";
+import { ethers } from "ethers";
 import { Octokit } from "@octokit/rest";
-import { abi } from "./abi";
 import * as dotenv from "dotenv";
 dotenv.config();
 // Create a GitHub client so we can merge the pull request
@@ -24,12 +22,14 @@ import Cryptr from "cryptr";
 export const cryptr = new Cryptr(process.env.ENCRYPTION_KEY);
 
 import "./server";
+import { abi } from "./abi";
 
-// Create a client so we can read from the blockchain
-const client = createPublicClient({
-  chain: process.env.NODE_ENV === "production" ? polygon : polygonMumbai,
-  transport: http(),
-});
+// Create a provider so we can read from the blockchain
+const provider = new ethers.providers.JsonRpcProvider(
+  process.env.NODE_ENV === "production"
+    ? "https://rpc.ankr.com/polygon"
+    : "https://rpc.ankr.com/polygon_mumbai"
+);
 
 // Keeps track of what pr's have been merged
 export const mergedPullRequests = new Map();
@@ -46,8 +46,7 @@ const handleEvent = async (
   owner: string,
   repo: string,
   pull_number: string,
-  sha: string,
-  log: Log
+  sha: string
 ) => {
   console.log(`Merging pull request: (${owner}/${repo}#${pull_number})`);
 
@@ -74,9 +73,9 @@ const handleEvent = async (
 
   let commentContent;
   if (success) {
-    commentContent = `This pull request has been merged by the [SecureSECO DAO](https://dao.secureseco.org/).\n\nExecuted by: \`${log.address}\`\nTransaction hash: \`${log.transactionHash}\``;
+    commentContent = `This pull request has been merged by the [SecureSECO DAO](https://dao.secureseco.org/).`;
   } else {
-    commentContent = `This pull request could **not** be merged.\n\nExecuted by: \`${log.address}\`\nTransaction hash: \`${log.transactionHash}\`\n\nError: \`\`\`${mergeError}\`\`\``;
+    commentContent = `This pull request could **not** be merged.\n\nError: \`\`\`${mergeError}\`\`\``;
   }
 
   octokit.issues
@@ -198,34 +197,42 @@ const mergePullRequest = async (
   }
 };
 
+// Create contract instance so we can listen to events
+const contract = new ethers.Contract(
+  process.env.CONTRACT_ADDRESS as any,
+  abi,
+  provider
+);
+
 // Detect the MergePullRequest event. This is emitted when a pull request needs to be merged,
 //  as a result of the execution of the mergePullRequest function. That function is called
 //  when a proposal from the DAO is accepted and executed with a specific action.
-client.watchContractEvent({
-  address: process.env.CONTRACT_ADDRESS as any,
-  abi,
-  eventName: "MergePullRequest",
-  onLogs: async (logs) => {
-    console.log(logs);
-    for (let log of logs) {
-      // Extract the owner, repo and pull_number from the event
-      const { owner, repo, pull_number, sha } = log.args;
-      try {
-        const pr = mergedPullRequests.get(`${owner}/${repo}#${pull_number}`);
-        if (pr === true) {
-          console.log(
-            `Pull request already merged: (${owner}/${repo}#${pull_number})`
-          );
-          continue;
-        }
-
-        await handleEvent(owner, repo, pull_number, sha, log);
-      } catch (error) {
-        console.log("Could not handle event: \n", error);
+contract.on(
+  "MergePullRequest(string,string,string,string)",
+  async (owner, repo, pull_number, sha) => {
+    try {
+      const pr = mergedPullRequests.get(`${owner}/${repo}#${pull_number}`);
+      if (pr === true) {
+        console.log(
+          `Pull request already merged: (${owner}/${repo}#${pull_number})`
+        );
+        return;
       }
+
+      await handleEvent(owner, repo, pull_number, sha);
+    } catch (error) {
+      console.log("Could not handle event: \n", error);
     }
-  },
-});
+  }
+);
 
 console.log(`Environment: ${process.env.NODE_ENV}`);
 console.log(`Contract address: ${process.env.CONTRACT_ADDRESS}`);
+
+const cleanup = () => {
+  provider.removeAllListeners();
+  process.exit(0);
+};
+
+process.on("SIGINT", cleanup);
+process.on("SIGTERM", cleanup);
