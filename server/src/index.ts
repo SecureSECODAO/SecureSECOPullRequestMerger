@@ -6,6 +6,13 @@
 import { ethers } from "ethers";
 import { Octokit } from "@octokit/rest";
 import * as dotenv from "dotenv";
+import AsyncLock from "async-lock";
+
+/**
+ * We create a lock so that we can only merge one pull request at a time.
+ */
+const lock = new AsyncLock();
+
 dotenv.config();
 // Create a GitHub client so we can merge the pull request
 export const octokit = new Octokit({
@@ -48,46 +55,55 @@ const handleEvent = async (
   pull_number: string,
   sha: string
 ) => {
-  console.log(`Merging pull request: (${owner}/${repo}#${pull_number})`);
+  await lock.acquire("merge", async () => {
+    console.log(`Merging pull request: (${owner}/${repo}#${pull_number})`);
 
-  let success = false;
-  let mergeError;
-  try {
-    // Approve the pull request
-    await approvePullRequest(owner, repo, pull_number);
+    let success = false;
+    let mergeError;
+    try {
+      // Retrieve the pull request
+      const res = await octokit.pulls.get({
+        owner,
+        repo,
+        pull_number,
+      });
 
-    // Get & validate the pull request
-    const res = await validatePullRequest(owner, repo, pull_number);
+      // Check commit hash
+      await validateCommitHash(res, sha);
 
-    // Check commit hash
-    await validateCommitHash(res, sha);
+      // Approve the pull request
+      await approvePullRequest(owner, repo, pull_number);
 
-    // Merge the pull request
-    await mergePullRequest(owner, repo, pull_number);
+      // Get & validate the pull request
+      await validatePullRequest(owner, repo, pull_number, res);
 
-    success = true;
-  } catch (error) {
-    console.log("Could not merge pull request: \n", error);
-    mergeError = error;
-  }
+      // Merge the pull request
+      await mergePullRequest(owner, repo, pull_number);
 
-  let commentContent;
-  if (success) {
-    commentContent = `This pull request has been merged by the [SecureSECO DAO](https://dao.secureseco.org/).`;
-  } else {
-    commentContent = `This pull request could **not** be merged.\n\nError: \`\`\`${mergeError}\`\`\``;
-  }
+      success = true;
+    } catch (error) {
+      console.log("Could not merge pull request: \n", error);
+      mergeError = error;
+    }
 
-  octokit.issues
-    .createComment({
-      owner,
-      repo,
-      issue_number: pull_number,
-      body: commentContent,
-    })
-    .catch((error) => {
-      console.log("Could not comment on pull request: \n", error);
-    });
+    let commentContent;
+    if (success) {
+      commentContent = `This pull request has been merged by the [SecureSECO DAO](https://dao.secureseco.org/).`;
+    } else {
+      commentContent = `This pull request could **not** be merged.\n\nError: \`\`\`${mergeError}\`\`\``;
+    }
+
+    octokit.issues
+      .createComment({
+        owner,
+        repo,
+        issue_number: pull_number,
+        body: commentContent,
+      })
+      .catch((error) => {
+        console.log("Could not comment on pull request: \n", error);
+      });
+  });
 };
 
 /**
@@ -96,14 +112,9 @@ const handleEvent = async (
 const validatePullRequest = async (
   owner: string,
   repo: string,
-  pull_number: string
+  pull_number: string,
+  res: any
 ) => {
-  const res = await octokit.pulls.get({
-    owner,
-    repo,
-    pull_number,
-  });
-
   let validValues = ["clean", "has_hooks", "unstable"];
   if (
     res.data == null ||
@@ -226,8 +237,8 @@ contract.on(
   }
 );
 
-console.log(`Environment: ${process.env.NODE_ENV}`);
-console.log(`Contract address: ${process.env.CONTRACT_ADDRESS}`);
+console.log(`🌎 Environment: ${process.env.NODE_ENV}`);
+console.log(`📜 Contract address: ${process.env.CONTRACT_ADDRESS}`);
 
 const cleanup = () => {
   provider.removeAllListeners();
