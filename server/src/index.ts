@@ -62,7 +62,7 @@ const handleEvent = async (
     let mergeError;
     try {
       // Retrieve the pull request
-      const res = await octokit.pulls.get({
+      let res = await octokit.pulls.get({
         owner,
         repo,
         pull_number,
@@ -73,6 +73,13 @@ const handleEvent = async (
 
       // Approve the pull request
       await approvePullRequest(owner, repo, pull_number);
+
+      // Retrieve the pull request again (state has updated)
+      res = await octokit.pulls.get({
+        owner,
+        repo,
+        pull_number,
+      });
 
       // Get & validate the pull request
       await validatePullRequest(owner, repo, pull_number, res);
